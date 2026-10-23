@@ -2,7 +2,7 @@
 
 userMessage → user; agentMessage → assistant; reasoning → stashed onto the next
 assistant entry; commandExecution / fileChange / mcpToolCall / dynamicToolCall /
-webSearch → assistant tool_call + tool result; anything else → opaque assistant note.
+webSearch / imageGeneration → assistant tool_call + tool result; anything else → opaque assistant note.
 Each item yields AT MOST one assistant + one tool entry (message-alternation
 invariant). ``is_tool_iteration`` ticks once per completed tool-shaped item.
 """
@@ -13,6 +13,8 @@ import hashlib
 import json
 from dataclasses import dataclass, field
 from typing import Any, Callable, Optional
+
+from agent.transports.codex_generated_images import image_completion_payload
 
 
 def _deterministic_call_id(item_type: str, item_id: str) -> str:
@@ -154,7 +156,13 @@ class CodexEventProjector:
             result["status"] = item["status"]
         return "web_search", "web_search", {"query": item.get("query") or ""}, json.dumps(result, ensure_ascii=False)
 
+    @staticmethod
+    def _image_generation_spec(item: dict) -> tuple[str, str, dict, str]:
+        content, _ = image_completion_payload(item)
+        return "image_generate", "image_generate", {}, content
+
     _TOOL_PROJECTIONS: dict[str, Callable[[dict], tuple[str, str, dict, str]]] = {
+        "imageGeneration": _image_generation_spec,
         "commandExecution": _command_spec,
         "fileChange": _file_change_spec,
         "mcpToolCall": _mcp_tool_call_spec,

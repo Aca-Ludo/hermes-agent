@@ -23,6 +23,7 @@ from agent.transports.codex_app_server import (
     CodexAppServerClient, CodexAppServerError, CodexAppServerTransportError,
 )
 from agent.transports.codex_event_projector import CodexEventProjector, ProjectionResult
+from agent.transports.codex_generated_images import normalize_image_notification
 from agent.transports.hermes_tools_mcp_server import HERMES_TOOLS_MCP_SERVER_NAME
 
 logger = logging.getLogger(__name__)
@@ -428,6 +429,8 @@ class CodexAppServerSession:
 
         Returns (projection, aborted); aborted = agent text carried a terminal ``<turn_aborted>`` marker.
         """
+        # Materialize once, after scope filtering, so live cards and replay share the same file.
+        note = normalize_image_notification(note)
         if self._on_event is not None:
             try:
                 self._on_event(note)

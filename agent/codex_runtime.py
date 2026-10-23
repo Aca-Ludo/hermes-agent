@@ -264,7 +264,7 @@ def _record_codex_app_server_compaction(agent, turn, *, approx_tokens: int | Non
 
 # Item types that project to a Hermes tool_call (keep in sync with agent/transports/codex_event_projector.py
 # so UI names match recorded names). webSearch is codex's built-in tool; the projector records it under the same id.
-_CODEX_TOOL_ITEM_TYPES = frozenset({"commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch"})
+_CODEX_TOOL_ITEM_TYPES = frozenset({"commandExecution", "fileChange", "mcpToolCall", "dynamicToolCall", "webSearch", "imageGeneration"})
 # Text-delta notifications → the agent stream hook each one feeds. Single source for both the display
 # handlers and the liveness set below, so a new delta method can't stream without refreshing activity (#118410).
 _CODEX_TEXT_DELTA_METHODS = (
@@ -281,7 +281,7 @@ _CODEX_PROGRESS_DELTA_METHODS = frozenset(m for m, _ in _CODEX_TEXT_DELTA_METHOD
 _CODEX_PROGRESS_ITEM_TYPES = _CODEX_TOOL_ITEM_TYPES | {"agentMessage", "reasoning"}
 # Internal MCP server wrapping Hermes' native tools: its inner dispatch has no tool_progress_callback, so the
 # codex-level mcpToolCall IS the display event and the mcp.hermes-tools.* prefix is stripped (users see Hermes tools).
-_STATIC_TOOL_NAMES = {"commandExecution": "exec_command", "fileChange": "apply_patch", "webSearch": "web_search"}
+_STATIC_TOOL_NAMES = {"commandExecution": "exec_command", "fileChange": "apply_patch", "webSearch": "web_search", "imageGeneration": "image_generate"}
 _STABLE_ID_PREFIXES = {"commandExecution": "exec", "fileChange": "apply_patch"}
 _MCP_LIKE_ITEM_TYPES = {"mcpToolCall", "dynamicToolCall"}
 # Item types whose preview is the first 120 chars of one string field.
@@ -343,6 +343,9 @@ def _codex_item_completion_payload(item: dict) -> tuple[str, bool]:
     """(result_text, is_error) for a completed tool item — display-facing text for live tool cards (the
     persisted history keeps the projector's ``{exit_code, output}`` envelope instead)."""
     item_type = item.get("type") or ""
+    if item_type == "imageGeneration":
+        from agent.transports.codex_generated_images import image_completion_payload
+        return image_completion_payload(item)
     if item_type == "commandExecution":
         out, exit_code = item.get("aggregatedOutput") or "", item.get("exitCode")
         is_error = bool(exit_code is not None and exit_code != 0)
